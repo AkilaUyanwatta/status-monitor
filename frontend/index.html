@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status</title>
+<meta name="description" content="Live status of our sites">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%238a96a8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<script src="config.js"></script>
+<style>
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --surface-2: #f6f8fa;
+  --ink: #1a2230;
+  --ink-2: #4a5568;
+  --ink-3: #7b8696;
+  --line: #dde2e8;
+  --empty: #d9dee5;
+  --up: #1e9e74;
+  --slow: #c98a12;
+  --down: #d2453b;
+  --pending: #8a96a8;
+  --focus: #2f6fdf;
+  --shadow: 0 1px 2px rgb(26 34 48 / .06), 0 4px 16px rgb(26 34 48 / .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161e;
+    --surface: #18202b;
+    --surface-2: #1d2632;
+    --ink: #e6ebf2;
+    --ink-2: #aab4c3;
+    --ink-3: #7d8899;
+    --line: #2a3442;
+    --empty: #2b3544;
+    --up: #2fbf8f;
+    --slow: #e0a32c;
+    --down: #ef6158;
+    --pending: #6f7b8d;
+    --focus: #7aa7ff;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161e; --surface: #18202b; --surface-2: #1d2632; --ink: #e6ebf2; --ink-2: #aab4c3; --ink-3: #7d8899;
+  --line: #2a3442; --empty: #2b3544; --up: #2fbf8f; --slow: #e0a32c; --down: #ef6158; --pending: #6f7b8d;
+  --focus: #7aa7ff; --shadow: 0 1px 2px rgb(0 0 0 / .3); color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 64px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 40px;
+  font-size: 14px; font-weight: 600; letter-spacing: .02em; color: var(--ink-2); }
+.brand .mark { display: inline-flex; gap: 8px; align-items: center; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; }
+.brand .mark i { width: 8px; height: 8px; border-radius: 2px; background: var(--ink); display: inline-block; }
+
+/* Verdict */
+.verdict { display: flex; align-items: center; gap: 20px; margin: 0 0 10px; }
+.verdict h1 { margin: 0; font-size: clamp(32px, 6vw, 56px); line-height: 1.05; font-weight: 800; letter-spacing: -.025em; }
+.pulse { position: relative; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--c, var(--pending)); }
+.pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--c, var(--pending));
+  animation: pulse 2s cubic-bezier(.2,.6,.4,1) infinite; }
+@keyframes pulse { from { transform: scale(1); opacity: .55; } to { transform: scale(2.6); opacity: 0; } }
+.sub { margin: 0 0 32px; color: var(--ink-2); font-size: 15px; padding-left: 42px; min-height: 22px; }
+
+.banner { display: none; align-items: center; gap: 10px; margin: -12px 0 24px; padding: 12px 16px; border-radius: 10px;
+  background: color-mix(in srgb, var(--slow) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--slow) 40%, transparent);
+  font-size: 14px; font-weight: 500; }
+.banner.show { display: flex; }
+.banner::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--slow); flex: none; }
+body.stale .sites, body.stale .history { opacity: .62; }
+
+/* Site list */
+.sites { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 14px; box-shadow: var(--shadow);
+  border: 1px solid var(--line); overflow: hidden; transition: opacity .2s; }
+.sites li + li { border-top: 1px solid var(--line); }
+.site { display: grid; grid-template-columns: 12px minmax(120px, 1.1fr) minmax(180px, 2fr) 76px 150px; align-items: center;
+  gap: 18px; padding: 18px 22px; text-decoration: none; color: inherit; }
+.site:hover { background: var(--surface-2); }
+.site:focus-visible { outline-offset: -3px; border-radius: 0; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--pending)); }
+[data-state="up"] { --c: var(--up); }
+[data-state="slow"] { --c: var(--slow); }
+[data-state="down"] { --c: var(--down); }
+[data-state="pending"] { --c: var(--pending); }
+.meta { min-width: 0; }
+.name { display: block; font-weight: 650; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reason { display: block; font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-state="down"] .reason { color: var(--down); font-weight: 500; }
+[data-state="slow"] .reason { color: var(--slow); font-weight: 500; }
+.strip { display: block; width: 100%; height: 34px; }
+.strip rect { fill: var(--empty); }
+.strip .up { fill: var(--up); }
+.strip .slow { fill: var(--slow); }
+.strip .down { fill: var(--down); }
+.strip .hl { opacity: .55; }
+/* Tabular figures where numbers line up in columns or tick over. */
+.now, .stats b, .sub, .chart text, .tip { font-variant-numeric: tabular-nums; }
+.now { text-align: right; font-weight: 600; font-size: 15px; }
+.now small, .stat small { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+.stats { text-align: right; font-size: 13px; color: var(--ink-3); line-height: 1.35; white-space: nowrap; }
+.stats b { color: var(--ink); font-weight: 600; font-size: 14px; }
+.empty { padding: 28px 22px; color: var(--ink-3); }
+
+.foot { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--ink-3); }
+.legend { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); display: inline-block; }
+
+/* Tooltip */
+.tip { position: fixed; z-index: 10; pointer-events: none; padding: 8px 11px; border-radius: 8px; font-size: 12.5px; line-height: 1.4;
+  background: var(--ink); color: var(--bg); box-shadow: 0 6px 24px rgb(0 0 0 / .18); opacity: 0; transition: opacity .08s;
+  max-width: 260px; }
+.tip.show { opacity: 1; }
+.tip b { font-weight: 650; }
+.tip .muted { opacity: .7; }
+
+/* History */
+.history { display: none; }
+body.view-history .history { display: block; }
+body.view-history .main { display: none; }
+.back { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); text-decoration: none;
+  margin-bottom: 24px; padding: 4px 0; }
+.back:hover { color: var(--ink); }
+.h-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.h-title { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.h-title h1 { margin: 0; font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1;
+  overflow-wrap: anywhere; }
+.h-title .dot { width: 16px; height: 16px; flex: none; margin-top: clamp(9px, 1.9vw, 14px); }
+.h-state { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink-2); background: none; border: 0; padding: 7px 14px;
+  border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.seg button:focus-visible { outline-offset: 1px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.tile, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.tile { padding: 16px 18px; }
+.tile .k { font-size: 13px; color: var(--ink-3); font-weight: 500; }
+.tile .v { font-size: 26px; font-weight: 700; letter-spacing: -.01em; margin-top: 2px; }
+.panel { padding: 18px 20px 14px; margin-bottom: 16px; }
+.panel h2 { margin: 0 0 12px; font-size: 14px; font-weight: 650; color: var(--ink-2); display: flex; justify-content: space-between; gap: 12px; }
+.panel h2 span { font-weight: 500; color: var(--ink-3); }
+.chart { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--ink-3); font-size: 11px; font-family: inherit; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .thr { stroke: var(--slow); stroke-dasharray: 4 4; stroke-width: 1; }
+.chart .avg { fill: none; stroke: var(--focus); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .band { fill: var(--focus); opacity: .12; }
+.chart .cross { stroke: var(--ink-3); stroke-width: 1; }
+.chart .nodata { fill: var(--empty); }
+.loading { color: var(--ink-3); font-size: 14px; padding: 24px 0; }
+
+@media (max-width: 720px) {
+  .stats br { display: none; }
+  .stats b + br + b::before { content: " · "; font-weight: 400; color: var(--ink-3); }
+  .wrap { padding: 28px 16px 48px; }
+  .brand { margin-bottom: 28px; }
+  .verdict { gap: 14px; }
+  .pulse { width: 16px; height: 16px; }
+  .sub { padding-left: 30px; margin-bottom: 24px; }
+  .site { grid-template-columns: 12px 1fr auto; gap: 6px 12px; padding: 16px; }
+  .now { grid-row: 1; grid-column: 3; white-space: nowrap; }
+  .strip { grid-column: 1 / -1; height: 30px; margin-top: 6px; }
+  .stats { grid-column: 1 / -1; text-align: left; }
+  .tiles { gap: 8px; }
+  .tile { padding: 12px; }
+  .tile .v { font-size: 20px; }
+  .panel { padding: 14px 14px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse::after { animation: none; display: none; }
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark"><i></i>Status</span><span id="clock"></span></div>
+
+  <main class="main" id="main">
+    <div class="verdict" id="verdict" data-state="pending">
+      <span class="pulse" aria-hidden="true"></span>
+      <h1 id="headline" aria-live="polite">Checking…</h1>
+    </div>
+    <p class="sub" id="sub"></p>
+    <div class="banner" id="banner" role="status"></div>
+    <ul class="sites" id="sites" aria-label="Sites"><li class="empty">Loading…</li></ul>
+    <div class="foot">
+      <span>Last 90 checks per site. Bar height is response time.</span>
+      <span class="legend" style="--c:var(--up)"><i></i>Up</span>
+      <span class="legend" style="--c:var(--slow)"><i></i>Slow</span>
+      <span class="legend" style="--c:var(--down)"><i></i>Down</span>
+    </div>
+  </main>
+
+  <section class="history" id="history" aria-labelledby="h-name">
+    <a class="back" href="#/">← All sites</a>
+    <div class="h-head">
+      <div class="h-title" id="h-title" data-state="pending">
+        <span class="dot" aria-hidden="true"></span>
+        <div><h1 id="h-name">—</h1><div class="h-state" id="h-state"></div></div>
+      </div>
+      <div class="seg" role="group" aria-label="Time range">
+        <button type="button" data-range="24h" aria-pressed="true">24h</button>
+        <button type="button" data-range="7d" aria-pressed="false">7d</button>
+        <button type="button" data-range="30d" aria-pressed="false">30d</button>
+      </div>
+    </div>
+    <div class="banner" id="h-banner" role="status"></div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Uptime</div><div class="v" id="t-up">—</div></div>
+      <div class="tile"><div class="k">Avg response</div><div class="v" id="t-avg">—</div></div>
+      <div class="tile"><div class="k">Checks</div><div class="v" id="t-checks">—</div></div>
+    </div>
+    <div class="panel">
+      <h2>Uptime <span id="tl-note"></span></h2>
+      <div id="timeline"></div>
+    </div>
+    <div class="panel">
+      <h2>Response time <span>average, with max shaded</span></h2>
+      <div id="chart"></div>
+    </div>
+  </section>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+"use strict";
+const API = String(window.STATUS_API || "").replace(/\/+$/, "");
+const POLL_MS = 15000;
+const HISTORY_POLL_MS = 60000;
+const RECENT = 90;
+const $ = (id) => document.getElementById(id);
+const SVGNS = "http://www.w3.org/2000/svg";
+const COLORS = { up: "#1e9e74", slow: "#c98a12", down: "#d2453b", pending: "#8a96a8" };
+
+let status = null;        // last good /api/status body
+let lastSuccess = null;   // Date.now() of last good fetch
+let apiDown = false;
+let history = null;       // last good /api/history body
+let historyFailed = false;
+let view = { name: "main" };
+let historyTimer = null;
+
+// ---------- formatting ----------
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmtMs = (ms) => (ms == null ? "—" : ms >= 10000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
+const fmtMsHtml = (ms) => (ms == null ? "—" : ms >= 10000 ? `${(ms / 1000).toFixed(1)}<small> s</small>` : `${Math.round(ms)}<small> ms</small>`);
+const fmtPct = (p) => (p == null ? "—" : p === 100 ? "100%" : `${p >= 99.99 ? p.toFixed(3) : p.toFixed(2)}%`);
+const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const hmFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric" });
+const dateFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const fullFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+function ago(t) {
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.floor(h / 24)} days ago`;
+}
+
+// ---------- verdict ----------
+function verdict(sites) {
+  if (!sites.length) return { state: "pending", text: "No sites configured" };
+  const down = sites.filter((s) => s.state === "down");
+  const slow = sites.filter((s) => s.state === "slow");
+  const pending = sites.filter((s) => s.state === "pending");
+  if (down.length === 1) return { state: "down", text: `${down[0].name} is down` };
+  if (down.length > 1) return { state: "down", text: down.length === sites.length ? `All ${sites.length} sites are down` : `${down.length} of ${sites.length} sites are down` };
+  if (slow.length === 1) return { state: "slow", text: `${slow[0].name} is slow` };
+  if (slow.length > 1) return { state: "slow", text: `${slow.length} sites are slow` };
+  if (pending.length === sites.length) return { state: "pending", text: "Checking…" };
+  return { state: "up", text: "Everything is up" };
+}
+
+function setFavicon(state) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='${COLORS[state]}'/></svg>`;
+  $("favicon").href = "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+// ---------- main view ----------
+function reasonFor(s) {
+  if (s.state === "down") return s.last?.error || "Down";
+  if (s.state === "slow") return `Slow · ${fmtMs(s.last.ms)}`;
+  if (s.state === "pending") return "Waiting for first check";
+  return s.last?.status ? `HTTP ${s.last.status}` : "";
+}
+
+function stripSvg(recent, slowMs) {
+  // Scale to this site's own range so variation is visible; colour carries slow/down.
+  const max = Math.max(250, ...recent.filter((c) => c.ok).map((c) => c.ms * 1.1));
+  const pad = RECENT - recent.length;
+  let rects = "";
+  for (let i = 0; i < RECENT; i++) {
+    const c = recent[i - pad];
+    if (!c) { rects += `<rect x="${i}" y="30" width="0.72" height="4" rx="0.2"/>`; continue; }
+    const cls = !c.ok ? "down" : c.ms > slowMs ? "slow" : "up";
+    const h = !c.ok ? 34 : Math.max(5, Math.min(34, (c.ms / max) * 34));
+    rects += `<rect class="${cls}" x="${i}" y="${(34 - h).toFixed(2)}" width="0.72" height="${h.toFixed(2)}" rx="0.2"/>`;
+  }
+  return `<svg class="strip" viewBox="0 0 ${RECENT - 0.28} 34" preserveAspectRatio="none" aria-hidden="true">${rects}</svg>`;
+}
+
+function renderMain() {
+  const list = $("sites");
+  if (!status) {
+    list.innerHTML = `<li class="empty">${apiDown ? "Status data unavailable. Retrying…" : "Loading…"}</li>`;
+    $("headline").textContent = apiDown ? "Status unavailable" : "Checking…";
+    $("verdict").dataset.state = "pending";
+    document.title = apiDown ? "Status unavailable" : "Status";
+    return;
+  }
+
+  const v = verdict(status.sites);
+  $("headline").textContent = v.text;
+  $("verdict").dataset.state = v.state;
+  document.title = `${v.text} · Status`;
+  setFavicon(v.state);
+
+  if (!status.sites.length) { list.innerHTML = `<li class="empty">No sites configured.</li>`; return; }
+  list.querySelector(".empty")?.remove();
+
+  const seen = new Set();
+  status.sites.forEach((s, idx) => {
+    seen.add(s.id);
+    let li = list.querySelector(`li[data-id="${CSS.escape(s.id)}"]`);
+    if (!li) {
+      li = document.createElement("li");
+      li.dataset.id = s.id;
+      li.innerHTML = `<a class="site" href="#/site/${encodeURIComponent(s.id)}"></a>`;
+    }
+    if (list.children[idx] !== li) list.insertBefore(li, list.children[idx] || null);
+    const a = li.firstElementChild;
+    a.dataset.state = s.state;
+    const up = s.uptime24h == null ? "—" : fmtPct(s.uptime24h);
+    a.setAttribute("aria-label", `${s.name}: ${s.state}. ${reasonFor(s)}. 24 hour uptime ${up}. Open history.`);
+    a.innerHTML = `
+      <span class="dot" aria-hidden="true"></span>
+      <span class="meta"><span class="name">${esc(s.name)}</span><span class="reason">${esc(reasonFor(s))}</span></span>
+      ${stripSvg(s.recent, status.slowMs)}
+      <span class="now">${s.last ? (s.last.ok ? fmtMsHtml(s.last.ms) : "<small>—</small>") : ""}</span>
+      <span class="stats"><b>${up}</b> uptime<br><b>${fmtMs(s.avgMs24h)}</b> avg · 24h</span>`;
+    a.querySelector(".strip").__checks = s.recent;
+  });
+  for (const li of [...list.children]) if (li.dataset.id && !seen.has(li.dataset.id)) li.remove();
+}
+
+function lastCheckedAt() {
+  if (!status) return null;
+  const ts = status.sites.map((s) => s.last?.t).filter(Boolean);
+  return ts.length ? Math.max(...ts) : null;
+}
+
+function renderSub() {
+  const t = lastCheckedAt();
+  $("sub").textContent = t ? `Last checked ${ago(t)}` : "";
+  const stale = apiDown && status;
+  const msg = apiDown
+    ? `Status data unavailable${lastSuccess ? ` — last updated ${timeFmt.format(lastSuccess)} (${ago(lastSuccess)})` : ". Retrying…"}`
+    : "";
+  for (const id of ["banner", "h-banner"]) {
+    $(id).textContent = msg;
+    $(id).classList.toggle("show", apiDown);
+  }
+  document.body.classList.toggle("stale", Boolean(stale));
+  $("clock").textContent = status ? `Checks every ${status.intervalSeconds}s` : "";
+}
+
+async function poll() {
+  try {
+    const res = await fetch(`${API}/api/status`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    if (!Array.isArray(body.sites)) throw new Error("bad response");
+    status = body;
+    lastSuccess = Date.now();
+    apiDown = false;
+  } catch (err) {
+    // Keep showing the last good data; never infer that sites are down.
+    apiDown = true;
+    console.warn("status fetch failed:", err);
+  }
+  renderMain();
+  renderSub();
+  if (view.name === "history") renderHistoryHeader();
+}
+
+// ---------- tooltip ----------
+const tip = $("tip");
+function showTip(html, x, y) {
+  tip.innerHTML = html;
+  tip.classList.add("show");
+  const r = tip.getBoundingClientRect();
+  let left = x - r.width / 2;
+  left = Math.max(8, Math.min(window.innerWidth - r.width - 8, left));
+  let top = y - r.height - 12;
+  if (top < 8) top = y + 18;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+function hideTip() { tip.classList.remove("show"); }
+
+function checkTip(c) {
+  const state = !c.ok ? "Down" : c.ms > status.slowMs ? "Slow" : "Up";
+  return `<b>${state}</b> <span class="muted">· ${esc(timeFmt.format(c.t))}</span><br>` +
+    `${c.status ? `HTTP ${c.status} · ` : ""}${fmtMs(c.ms)}` +
+    (c.error ? `<br>${esc(c.error)}` : "");
+}
+
+$("sites").addEventListener("pointermove", (e) => {
+  const strip = e.target.closest?.(".strip");
+  document.querySelectorAll(".strip .hl").forEach((r) => r.classList.remove("hl"));
+  if (!strip || !strip.__checks) return hideTip();
+  const box = strip.getBoundingClientRect();
+  const i = Math.floor(((e.clientX - box.left) / box.width) * RECENT);
+  const c = strip.__checks[i - (RECENT - strip.__checks.length)];
+  if (!c) return hideTip();
+  strip.children[i]?.classList.add("hl");
+  showTip(checkTip(c), e.clientX, box.top);
+});
+$("sites").addEventListener("pointerleave", () => { hideTip(); document.querySelectorAll(".strip .hl").forEach((r) => r.classList.remove("hl")); });
+
+// ---------- history view ----------
+function currentSite() { return status?.sites.find((s) => s.id === view.id); }
+
+function renderHistoryHeader() {
+  const s = currentSite();
+  const name = s?.name ?? history?.name ?? "Unknown site";
+  $("h-name").textContent = name;
+  $("h-title").dataset.state = s?.state ?? "pending";
+  $("h-state").textContent = s ? `${s.state[0].toUpperCase() + s.state.slice(1)} · ${reasonFor(s)}` : status ? "Not monitored" : "";
+  document.title = `${name} · Status`;
+  if (s) setFavicon(s.state);
+}
+
+async function loadHistory() {
+  clearTimeout(historyTimer);
+  const { id, range } = view;
+  try {
+    const res = await fetch(`${API}/api/history?id=${encodeURIComponent(id)}&range=${range}`, { signal: AbortSignal.timeout(10000) });
+    if (res.status === 404) { history = null; historyFailed = false; renderHistory("This site is not monitored."); return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json();
+    if (view.name !== "history" || view.id !== id || view.range !== range) return;
+    history = body;
+    historyFailed = false;
+  } catch (err) {
+    console.warn("history fetch failed:", err);
+    historyFailed = true;
+  }
+  renderHistory();
+  historyTimer = setTimeout(loadHistory, HISTORY_POLL_MS);
+}
+
+function uptimeColor(b) {
+  if (!b.checks) return "var(--empty)";
+  const pct = (b.up / b.checks) * 100;
+  if (pct === 100) return "var(--up)";
+  // 99% up already looks clearly off; 80% and below is full red.
+  const w = Math.min(100, Math.max(25, (100 - pct) * 5));
+  return `color-mix(in oklab, var(--down) ${w.toFixed(0)}%, var(--up))`;
+}
+
+function bucketLabel(b, bucketMs) {
+  const end = b.t + bucketMs;
+  return `${esc(fullFmt.format(b.t))} – ${esc(hmFmt.format(end))}`;
+}
+
+function bucketTip(b, bucketMs) {
+  if (!b.checks) return `${bucketLabel(b, bucketMs)}<br><span class="muted">No data</span>`;
+  const pct = (b.up / b.checks) * 100;
+  return `${bucketLabel(b, bucketMs)}<br><b>${fmtPct(pct)}</b> up · ${b.up}/${b.checks} checks` +
+    (b.avgMs != null ? `<br>avg ${fmtMs(b.avgMs)} · max ${fmtMs(b.maxMs)}` : "");
+}
+
+function ticks(from, to, range) {
+  const out = [];
+  const d = new Date(from);
+  if (range === "24h") {
+    d.setMinutes(0, 0, 0);
+    do d.setHours(d.getHours() + 1); while (d.getHours() % 4);
+    for (; d < to; d.setHours(d.getHours() + 4)) out.push([+d, hmFmt.format(d)]);
+  } else {
+    const step = range === "7d" ? 1 : 5;
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    for (; d < to; d.setDate(d.getDate() + step)) out.push([+d, range === "7d" ? dayFmt.format(d) : dateFmt.format(d)]);
+  }
+  return out;
+}
+
+function niceMax(v) {
+  if (v <= 0) return 100;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+function renderHistory(message) {
+  renderHistoryHeader();
+  const tl = $("timeline"), ch = $("chart");
+  if (message || !history) {
+    const text = message || (historyFailed ? "History unavailable. Retrying…" : "Loading…");
+    tl.innerHTML = ch.innerHTML = `<div class="loading">${esc(text)}</div>`;
+    for (const id of ["t-up", "t-avg", "t-checks"]) $(id).textContent = "—";
+    $("tl-note").textContent = "";
+    return;
+  }
+
+  const { buckets, bucketMs, range } = history;
+  const total = buckets.reduce((n, b) => n + b.checks, 0);
+  const up = buckets.reduce((n, b) => n + b.up, 0);
+  const okBuckets = buckets.filter((b) => b.avgMs != null);
+  const avg = okBuckets.length ? okBuckets.reduce((n, b) => n + b.avgMs * b.up, 0) / okBuckets.reduce((n, b) => n + b.up, 0) : null;
+  $("t-up").textContent = total ? fmtPct((up / total) * 100) : "—";
+  $("t-avg").textContent = fmtMs(avg);
+  $("t-checks").textContent = total.toLocaleString();
+  $("tl-note").textContent = `${{ "24h": "5-minute", "7d": "30-minute", "30d": "2-hour" }[range]} blocks`;
+
+  const W = Math.max(280, tl.clientWidth || ch.clientWidth || 600);
+  const from = buckets[0].t, to = buckets.at(-1).t + bucketMs;
+  const n = buckets.length;
+  const xAt = (t) => ((t - from) / (to - from)) * W;
+  const labels = ticks(from, to, range);
+
+  // Uptime timeline
+  tl.innerHTML = "";
+  const TH = 40;
+  const tsvg = el("svg", { class: "chart", width: W, height: TH + 20, viewBox: `0 0 ${W} ${TH + 20}`, role: "img",
+    "aria-label": `Uptime over the last ${range}: ${total ? fmtPct((up / total) * 100) : "no data"}` }, tl);
+  const bw = W / n;
+  const gap = bw > 3 ? 1 : 0;
+  buckets.forEach((b, i) => {
+    el("rect", { x: (i * bw).toFixed(2), y: 0, width: Math.max(0.5, bw - gap).toFixed(2), height: TH, rx: bw > 3 ? 1 : 0, style: `fill:${uptimeColor(b)}` }, tsvg);
+  });
+  for (const [t, label] of thin(labels, xAt, W)) el("text", { x: xAt(t), y: TH + 15, "text-anchor": "middle" }, tsvg).textContent = label;
+  attachHover(tsvg, n, W, (i) => bucketTip(buckets[i], bucketMs), null);
+
+  // Response-time chart
+  ch.innerHTML = "";
+  const H = W < 500 ? 180 : 220, L = 46, B = 22, T = 8;
+  const plotW = W - L, plotH = H - B - T;
+  const peak = Math.max(...buckets.map((b) => b.maxMs ?? b.avgMs ?? 0));
+  const yMax = niceMax(Math.max(peak * 1.08, 100));
+  const y = (ms) => T + plotH - (Math.min(ms, yMax) / yMax) * plotH;
+  const x = (i) => L + ((i + 0.5) / n) * plotW;
+  const svg = el("svg", { class: "chart", width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": `Response time over the last ${range}, average ${fmtMs(avg)}` }, ch);
+  for (let k = 0; k <= 4; k++) {
+    const v = (yMax / 4) * k;
+    el("line", { class: "grid", x1: L, x2: W, y1: y(v), y2: y(v) }, svg);
+    el("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = v >= 1000 ? `${+(v / 1000).toFixed(2)}s` : `${Math.round(v)}`;
+  }
+  if (status && status.slowMs < yMax) {
+    el("line", { class: "thr", x1: L, x2: W, y1: y(status.slowMs), y2: y(status.slowMs) }, svg);
+    el("text", { x: W - 4, y: y(status.slowMs) - 5, "text-anchor": "end", style: "fill:var(--slow)" }, svg).textContent = "slow";
+  }
+  // Segments break where a bucket has no successful checks.
+  let line = "", band = [];
+  const flushBand = () => {
+    if (band.length) {
+      const top = band.map(([i, b]) => `${x(i).toFixed(1)},${y(b.maxMs).toFixed(1)}`);
+      const bot = band.slice().reverse().map(([i, b]) => `${x(i).toFixed(1)},${y(b.avgMs).toFixed(1)}`);
+      el("path", { class: "band", d: `M${top.join("L")}L${bot.join("L")}Z` }, svg);
+    }
+    band = [];
+  };
+  let pen = false;
+  buckets.forEach((b, i) => {
+    if (b.avgMs == null) { pen = false; flushBand(); return; }
+    line += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(b.avgMs).toFixed(1)}`;
+    pen = true;
+    band.push([i, b]);
+  });
+  flushBand();
+  if (line) {
+    el("path", { class: "avg", d: line }, svg);
+    // Single isolated points need a dot to be visible.
+    buckets.forEach((b, i) => {
+      if (b.avgMs != null && buckets[i - 1]?.avgMs == null && buckets[i + 1]?.avgMs == null)
+        el("circle", { cx: x(i), cy: y(b.avgMs), r: 2, style: "fill:var(--focus)" }, svg);
+    });
+  } else {
+    el("text", { x: L + plotW / 2, y: T + plotH / 2, "text-anchor": "middle" }, svg).textContent = "No successful checks in this range";
+  }
+  const xAtPlot = (t) => L + ((t - from) / (to - from)) * plotW;
+  for (const [t, label] of thin(labels, xAtPlot, W, L)) el("text", { x: xAtPlot(t), y: H - 5, "text-anchor": "middle" }, svg).textContent = label;
+  const cross = el("line", { class: "cross", x1: 0, x2: 0, y1: T, y2: T + plotH, visibility: "hidden" }, svg);
+  attachHover(svg, n, plotW, (i) => bucketTip(buckets[i], bucketMs), { cross, x, L });
+}
+
+// Drop tick labels that would collide or overflow.
+function thin(labels, xAt, W, left = 0) {
+  const out = [];
+  let lastX = -Infinity;
+  for (const tk of labels) {
+    const px = xAt(tk[0]);
+    if (px - lastX < 56 || px < left + 18 || px > W - 18) continue;
+    out.push(tk);
+    lastX = px;
+  }
+  return out;
+}
+
+function attachHover(svg, n, width, tipFor, opts) {
+  const offset = opts?.L ?? 0;
+  svg.addEventListener("pointermove", (e) => {
+    const box = svg.getBoundingClientRect();
+    const px = e.clientX - box.left - offset;
+    const i = Math.floor((px / width) * n);
+    if (i < 0 || i >= n) { hideTip(); opts?.cross.setAttribute("visibility", "hidden"); return; }
+    if (opts) {
+      opts.cross.setAttribute("x1", opts.x(i));
+      opts.cross.setAttribute("x2", opts.x(i));
+      opts.cross.setAttribute("visibility", "visible");
+    }
+    showTip(tipFor(i), e.clientX, box.top);
+  });
+  svg.addEventListener("pointerleave", () => { hideTip(); opts?.cross.setAttribute("visibility", "hidden"); });
+}
+
+// ---------- routing ----------
+function route() {
+  const m = location.hash.match(/^#\/site\/([^?]+)(?:\?range=(24h|7d|30d))?/);
+  hideTip();
+  if (m) {
+    const id = decodeURIComponent(m[1]);
+    const range = m[2] || "24h";
+    const changed = view.name !== "history" || view.id !== id || view.range !== range;
+    view = { name: "history", id, range };
+    document.body.classList.add("view-history");
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.range === range)));
+    if (changed) {
+      history = null;
+      historyFailed = false;
+      renderHistory();
+      window.scrollTo(0, 0);
+      loadHistory();
+    }
+  } else {
+    const wasHistory = view.name === "history";
+    view = { name: "main" };
+    clearTimeout(historyTimer);
+    document.body.classList.remove("view-history");
+    renderMain();
+    if (wasHistory) {
+      // Return focus to the row the user came from.
+      const prev = history && document.querySelector(`li[data-id="${CSS.escape(history.id)}"] a`);
+      (prev || $("headline")).focus?.({ preventScroll: false });
+    }
+  }
+}
+
+document.querySelectorAll(".seg button").forEach((btn) =>
+  btn.addEventListener("click", () => {
+    if (view.name !== "history") return;
+    location.replace(`#/site/${encodeURIComponent(view.id)}?range=${btn.dataset.range}`);
+  }),
+);
+
+let resizeRaf = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => { if (view.name === "history" && history) renderHistory(); });
+});
+window.addEventListener("hashchange", route);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && view.name === "history") location.hash = "#/"; });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+route();
+poll();
+setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+setInterval(renderSub, 1000);
+</script>
+</body>
+</html>

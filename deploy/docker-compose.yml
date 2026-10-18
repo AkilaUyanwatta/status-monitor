@@ -1,0 +1,29 @@
+services:
+  monitor:
+    # Set to ghcr.io/<owner>/<repo> (lowercase) once the GitHub repo exists.
+    image: ghcr.io/akilauyanwatta/status-monitor:latest
+    env_file: .env
+    volumes:
+      - monitor-data:/data
+    restart: unless-stopped
+    # Room for Litestream's final sync to R2 after the app exits.
+    stop_grace_period: 30s
+    # No published ports: only cloudflared reaches it, over the compose network.
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    depends_on:
+      - monitor
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  monitor-data:

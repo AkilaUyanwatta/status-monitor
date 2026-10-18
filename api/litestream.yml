@@ -1,0 +1,29 @@
+# Litestream 0.5.x configuration (single `replica:` per db; `replicas:` is the
+# deprecated 0.3.x form). ${VAR}s are expanded from the environment at startup.
+dbs:
+  - path: ${DATA_DIR}/status.db
+    replica:
+      type: s3
+      bucket: ${R2_BUCKET}
+      path: status.db
+      endpoint: ${R2_ENDPOINT} # set by entrypoint.sh from R2_ACCOUNT_ID
+      region: auto
+      access-key-id: ${R2_ACCESS_KEY_ID}
+      secret-access-key: ${R2_SECRET_ACCESS_KEY}
+      # Upload WAL changes every 30s: bounds data loss on a VM loss to ~30s
+      # while keeping R2 Class A operations far below the free tier.
+      sync-interval: 30s
+
+# Compaction levels above L0. Fewer, coarser levels mean fewer R2 writes.
+levels:
+  - interval: 5m
+  - interval: 1h
+
+# Full snapshot daily; keep ~72h of restorable history in the bucket.
+snapshot:
+  interval: 24h
+  retention: 72h
+
+logging:
+  level: info
+  type: text
