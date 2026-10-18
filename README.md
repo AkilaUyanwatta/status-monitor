@@ -29,7 +29,8 @@ A public status page for a fixed list of URLs.
 | `api/monitors.js` | `MONITOR_URLS` parsing and stable ids |
 | `api/test/` | `node:test` unit tests |
 | `api/Dockerfile`, `entrypoint.sh`, `litestream.yml` | Image: restore → replicate → run app |
-| `frontend/index.html`, `config.js` | Status page (no build step); `config.js` holds the API URL and titles |
+| `frontend/index.html` | Status page (vanilla HTML/CSS/JS) |
+| `frontend/build-config.mjs` | Generates the untracked `frontend/config.js` (API URL, titles) from environment variables at build time |
 | `deploy/` | `docker-compose.yml`, `.env.example`, `setup.sh` for the VM |
 | `.github/workflows/image.yml` | Tests, then builds the `amd64` + `arm64` image and pushes it to GHCR |
 
@@ -52,13 +53,13 @@ All of it lives in `/opt/status-monitor/.env` on the server. `MONITOR_URLS` is t
 
 For example, `MONITOR_URLS="Website=https://example.com,Backend=https://api.example.com/health"` shows two rows, "Website" and "Backend".
 
-The page and tab titles are set in `frontend/config.js`:
+The frontend's settings are environment variables. The Pages build command `node frontend/build-config.mjs` turns them into `frontend/config.js`, which is never committed:
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `window.STATUS_API` | — | API base URL, e.g. `https://status-api.example.com` |
-| `window.STATUS_TITLE` | `Status` | Title at the top of the page |
-| `window.STATUS_TAB_TITLE` | `STATUS_TITLE` | Browser tab title. The current verdict goes in front of it, e.g. "Everything is up · Acme Status". |
+| `STATUS_API` | `http://localhost:4040` locally; required on Pages | API base URL, e.g. `https://status-api.example.com` |
+| `STATUS_TITLE` | `Status` | Title at the top of the page |
+| `STATUS_TAB_TITLE` | `STATUS_TITLE` | Browser tab title. The current verdict goes in front of it, e.g. "Everything is up · Acme Status". |
 
 Each site's id is the first 10 hex characters of the SHA-256 of its normalized URL. Reordering or renaming entries keeps their history. Changing a URL starts a new history, and the old rows expire after `RETENTION_DAYS`.
 
@@ -83,7 +84,8 @@ npm test
 MONITOR_URLS="GitHub=https://github.com,https://example.com" \
   ALLOWED_ORIGIN=http://localhost:8080 DATA_DIR=./data npm start
 
-# in another shell: serve the page (frontend/config.js points at localhost:4040)
+# in another shell: generate config.js (defaults to localhost:4040), then serve the page
+node frontend/build-config.mjs
 cd frontend && python3 -m http.server 8080
 ```
 
@@ -106,8 +108,8 @@ One-time setup. Steps marked 👤 happen in a web dashboard.
    - Add the domain.
    - Create the R2 bucket `status-monitor-db` and an R2 API token with Object Read & Write access to that bucket only.
    - Create a tunnel (**Zero Trust → Networks → Tunnels**) with the public hostname `status-api.<domain>` and service `HTTP` → `monitor:4040`.
-   - Create a Pages project from this repo with an empty build command and the output directory `frontend`, and add the custom domain `status.<domain>`.
-   - Set `window.STATUS_API` in `frontend/config.js` to `https://status-api.<domain>`.
+   - Create a Pages project from this repo with the build command `node frontend/build-config.mjs` and the output directory `frontend`, and add the custom domain `status.<domain>`.
+   - Under **Settings → Variables and Secrets**, set `STATUS_API=https://status-api.<domain>` and, optionally, `STATUS_TITLE` and `STATUS_TAB_TITLE`. Then redeploy: variables only take effect on the next build.
 3. 👤 **Oracle Cloud.**
    - Upgrade to Pay As You Go, so idle Always Free VMs aren't reclaimed, and set a $1 budget alert.
    - Create an Ubuntu 24.04 VM (`VM.Standard.E2.1.Micro` or Ampere A1) with your SSH key.
