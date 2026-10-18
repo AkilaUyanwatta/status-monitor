@@ -71,7 +71,9 @@ a { color: inherit; }
 
 .brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 40px;
   font-size: 14px; font-weight: 600; letter-spacing: .02em; color: var(--ink-2); }
-.brand .mark { display: inline-flex; gap: 8px; align-items: center; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; }
+.brand .mark { display: inline-flex; gap: 9px; align-items: center; min-width: 0; margin: 0; font-size: 16px; font-weight: 700;
+  letter-spacing: -.005em; color: var(--ink); overflow-wrap: anywhere; }
+.brand .mark i { flex: none; }
 .brand .mark i { width: 8px; height: 8px; border-radius: 2px; background: var(--ink); display: inline-block; }
 
 /* Verdict */
@@ -195,7 +197,7 @@ body.view-history .main { display: none; }
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="mark"><i></i>Status</span><span id="clock"></span></div>
+  <header class="brand"><p class="mark"><i aria-hidden="true"></i><span id="page-title">Status</span></p><span id="clock"></span></header>
 
   <main class="main" id="main">
     <div class="verdict" id="verdict" data-state="pending">
@@ -247,6 +249,8 @@ body.view-history .main { display: none; }
 <script>
 "use strict";
 const API = String(window.STATUS_API || "").replace(/\/+$/, "");
+const PAGE_TITLE = String(window.STATUS_TITLE || "Status");
+const TAB_TITLE = String(window.STATUS_TAB_TITLE || PAGE_TITLE);
 const POLL_MS = 15000;
 const HISTORY_POLL_MS = 60000;
 const RECENT = 90;
@@ -331,14 +335,14 @@ function renderMain() {
     list.innerHTML = `<li class="empty">${apiDown ? "Status data unavailable. Retrying…" : "Loading…"}</li>`;
     $("headline").textContent = apiDown ? "Status unavailable" : "Checking…";
     $("verdict").dataset.state = "pending";
-    document.title = apiDown ? "Status unavailable" : "Status";
+    document.title = apiDown ? `Status unavailable · ${TAB_TITLE}` : TAB_TITLE;
     return;
   }
 
   const v = verdict(status.sites);
   $("headline").textContent = v.text;
   $("verdict").dataset.state = v.state;
-  document.title = `${v.text} · Status`;
+  document.title = `${v.text} · ${TAB_TITLE}`;
   setFavicon(v.state);
 
   if (!status.sites.length) { list.innerHTML = `<li class="empty">No sites configured.</li>`; return; }
@@ -453,7 +457,7 @@ function renderHistoryHeader() {
   $("h-name").textContent = name;
   $("h-title").dataset.state = s?.state ?? "pending";
   $("h-state").textContent = s ? `${s.state[0].toUpperCase() + s.state.slice(1)} · ${reasonFor(s)}` : status ? "Not monitored" : "";
-  document.title = `${name} · Status`;
+  document.title = `${name} · ${TAB_TITLE}`;
   if (s) setFavicon(s.state);
 }
 
@@ -698,6 +702,8 @@ window.addEventListener("hashchange", route);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && view.name === "history") location.hash = "#/"; });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
+$("page-title").textContent = PAGE_TITLE;
+document.title = TAB_TITLE;
 route();
 poll();
 setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);

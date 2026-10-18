@@ -29,7 +29,7 @@ A public status page for a fixed list of URLs.
 | `api/monitors.js` | `MONITOR_URLS` parsing and stable ids |
 | `api/test/` | `node:test` unit tests |
 | `api/Dockerfile`, `entrypoint.sh`, `litestream.yml` | Image: restore → replicate → run app |
-| `frontend/index.html`, `config.js` | Status page (no build step); `config.js` holds the API URL |
+| `frontend/index.html`, `config.js` | Status page (no build step); `config.js` holds the API URL and titles |
 | `deploy/` | `docker-compose.yml`, `.env.example`, `setup.sh` for the VM |
 | `.github/workflows/image.yml` | Tests, then builds the `amd64` + `arm64` image and pushes it to GHCR |
 
@@ -49,6 +49,16 @@ All of it lives in `/opt/status-monitor/.env` on the server. `MONITOR_URLS` is t
 | `PORT` / `HOST` | 4040 / 0.0.0.0 | Listen address |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | (empty) | Litestream replica. Set all four or none; with none set, there's no replication. |
 | `TUNNEL_TOKEN` | — | Used by the cloudflared container |
+
+For example, `MONITOR_URLS="Website=https://example.com,Backend=https://api.example.com/health"` shows two rows, "Website" and "Backend".
+
+The page and tab titles are set in `frontend/config.js`:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `window.STATUS_API` | — | API base URL, e.g. `https://status-api.example.com` |
+| `window.STATUS_TITLE` | `Status` | Title at the top of the page |
+| `window.STATUS_TAB_TITLE` | `STATUS_TITLE` | Browser tab title. The current verdict goes in front of it, e.g. "Everything is up · Acme Status". |
 
 Each site's id is the first 10 hex characters of the SHA-256 of its normalized URL. Reordering or renaming entries keeps their history. Changing a URL starts a new history, and the old rows expire after `RETENTION_DAYS`.
 
